@@ -12,12 +12,24 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "buddhi-ai-code.helloWorld",
-        "title": "Hello World"
-      }
-    ]
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "buddhi-ai-sidebar",
+          "title": "Buddhi AI",
+          "icon": "$(sparkle)"
+        }
+      ]
+    },
+    "views": {
+      "buddhi-ai-sidebar": [
+        {
+          "type": "webview",
+          "id": "buddhi-ai-webview",
+          "name": "Buddhi AI"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
