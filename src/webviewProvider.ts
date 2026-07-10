@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 	constructor(private readonly _extensionUri: vscode.Uri) {}
@@ -13,62 +15,56 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 			localResourceRoots: [this._extensionUri]
 		};
 
-		webviewView.webview.html = this._getHtmlForWebview();
+		webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-		webviewView.webview.onDidReceiveMessage(data => {
-			switch (data.command) {
-				case 'showAlert':
-					vscode.window.showInformationMessage(data.text);
-					break;
+		webviewView.webview.onDidReceiveMessage(async (data) => {
+			const { command, requestId, args, text } = data;
+			try {
+				let payload;
+				switch (command) {
+					case 'showAlert':
+						vscode.window.showInformationMessage(args?.text || text);
+						payload = { success: true };
+						break;
+					default:
+						console.warn(`Unknown command: ${command}`);
+				}
+				if (requestId) {
+					webviewView.webview.postMessage({ requestId, payload });
+				}
+			} catch (error) {
+				if (requestId) {
+					webviewView.webview.postMessage({ requestId, error: String(error) });
+				}
 			}
 		});
 	}
 
-	private _getHtmlForWebview() {
-		return `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Buddhi AI</title>
-				<style>
-					body {
-						display: flex;
-						flex-direction: column;
-						align-items: center;
-						justify-content: center;
-						height: 100vh;
-						margin: 0;
-						padding: 0;
-					}
-					button {
-						padding: 10px 20px;
-						font-size: 16px;
-						background-color: var(--vscode-button-background);
-						color: var(--vscode-button-foreground);
-						border: none;
-						border-radius: 4px;
-						cursor: pointer;
-					}
-					button:hover {
-						background-color: var(--vscode-button-hoverBackground);
-					}
-				</style>
-			</head>
-			<body>
-				<button id="clickBtn">Click me</button>
+	private _getHtmlForWebview(webview: vscode.Webview) {
+		const outDir = path.join(this._extensionUri.fsPath, 'webview-ui', 'out');
+		const indexPath = path.join(outDir, 'index.html');
 
-				<script>
-					const vscode = acquireVsCodeApi();
-					
-					document.getElementById('clickBtn').addEventListener('click', () => {
-						vscode.postMessage({
-							command: 'showAlert',
-							text: 'Namo buddhaya!'
-						});
-					});
-				</script>
-			</body>
-			</html>`;
+		try {
+			let html = fs.readFileSync(indexPath, 'utf8');
+
+			const webviewUri = webview.asWebviewUri(vscode.Uri.file(outDir)).toString();
+
+			html = html.replace(/(href|src)="\/_next/g, `$1="${webviewUri}/_next`);
+			
+			html = html.replace(/(href|src)="\/([^"]+)"/g, (match, p1, p2) => {
+				if (p2.startsWith('_next') || p2.startsWith('http')) return match;
+				return `${p1}="${webviewUri}/${p2}"`;
+			});
+
+			return html;
+		} catch (error) {
+			console.error('Error reading index.html:', error);
+			return `<!DOCTYPE html>
+				<html lang="en">
+				<body>
+					<p>Failed to load webview. Please build the Next.js UI first.</p>
+				</body>
+				</html>`;
+		}
 	}
 }
