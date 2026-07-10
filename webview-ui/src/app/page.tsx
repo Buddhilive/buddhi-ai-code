@@ -8,12 +8,12 @@ export default function Home() {
 
   const handleTestAlert = async () => {
     try {
-      const result = await vscode.request('showAlert', { text: 'Hello from Next.js in VS Code Webview!' });
+      const result = await vscode.request<{ success: boolean }>('showAlert', { text: 'Hello from Next.js in VS Code Webview!' });
       if (result?.success) {
         setResponse('Alert shown successfully!');
       }
-    } catch (err: any) {
-      setResponse(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      setResponse(`Error: ${(err as Error).message}`);
     }
   };
 

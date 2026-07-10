@@ -10,16 +10,19 @@ interface WebviewApi<StateType> {
 }
 
 declare global {
-  function acquireVsCodeApi<StateType = any>(): WebviewApi<StateType>;
+  function acquireVsCodeApi<StateType = unknown>(): WebviewApi<StateType>;
 }
 
 class VSCodeAPIWrapper {
-  private readonly vsCodeApi: WebviewApi<unknown> | undefined;
+  private vsCodeApi: WebviewApi<unknown> | undefined;
 
-  constructor() {
-    if (typeof acquireVsCodeApi === 'function') {
-      this.vsCodeApi = acquireVsCodeApi();
+  private getApi() {
+    if (!this.vsCodeApi) {
+      if (typeof acquireVsCodeApi === 'function') {
+        this.vsCodeApi = acquireVsCodeApi();
+      }
     }
+    return this.vsCodeApi;
   }
 
   /**
@@ -27,8 +30,9 @@ class VSCodeAPIWrapper {
    * @param command The command name to send.
    * @param args Optional arguments payload.
    */
-  public async request<T = any>(command: string, args?: any): Promise<T> {
-    if (!this.vsCodeApi) {
+  public async request<T = unknown>(command: string, args?: unknown): Promise<T> {
+    const api = this.getApi();
+    if (!api) {
       console.warn('VS Code API is not available. Command:', command);
       return Promise.resolve({} as T);
     }
@@ -49,27 +53,28 @@ class VSCodeAPIWrapper {
       };
 
       window.addEventListener('message', handler);
-      this.vsCodeApi?.postMessage({ command, requestId, args });
+      api.postMessage({ command, requestId, args });
     });
   }
 
   /**
    * Post a fire-and-forget message to the extension host.
    */
-  public postMessage(command: string, args?: any): void {
-    if (this.vsCodeApi) {
-      this.vsCodeApi.postMessage({ command, args });
+  public postMessage(command: string, args?: unknown): void {
+    const api = this.getApi();
+    if (api) {
+      api.postMessage({ command, args });
     } else {
       console.warn('VS Code API is not available. Command:', command);
     }
   }
 
   public getState<T>(): T | undefined {
-    return this.vsCodeApi?.getState() as T | undefined;
+    return this.getApi()?.getState() as T | undefined;
   }
 
   public setState<T>(state: T): void {
-    this.vsCodeApi?.setState(state);
+    this.getApi()?.setState(state);
   }
 }
 

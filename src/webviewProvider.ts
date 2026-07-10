@@ -49,12 +49,15 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 
 			const webviewUri = webview.asWebviewUri(vscode.Uri.file(outDir)).toString();
 
-			html = html.replace(/(href|src)="\/_next/g, `$1="${webviewUri}/_next`);
-			
-			html = html.replace(/(href|src)="\/([^"]+)"/g, (match, p1, p2) => {
-				if (p2.startsWith('_next') || p2.startsWith('http')) return match;
-				return `${p1}="${webviewUri}/${p2}"`;
-			});
+			// Inject <base> tag and patch history API to prevent Next.js App Router from crashing the webview by navigating
+			const patchScript = `
+				<base href="${webviewUri}/">
+				<script>
+					window.history.pushState = function() {};
+					window.history.replaceState = function() {};
+				</script>
+			`;
+			html = html.replace('<head>', `<head>\n${patchScript}`);
 
 			return html;
 		} catch (error) {
