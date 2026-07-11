@@ -1,9 +1,55 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as http from 'http';
 
 export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
-	constructor(private readonly _extensionUri: vscode.Uri) {}
+	private _proxyServer?: http.Server;
+
+	constructor(private readonly _extensionUri: vscode.Uri) {
+		this._startProxy();
+	}
+
+	private _startProxy() {
+		this._proxyServer = http.createServer((req, res) => {
+			res.setHeader('Access-Control-Allow-Origin', '*');
+			res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+			res.setHeader('Access-Control-Allow-Headers', '*');
+			
+			if (req.method === 'OPTIONS') {
+				res.writeHead(200);
+				res.end();
+				return;
+			}
+
+			const options = {
+				hostname: '127.0.0.1',
+				port: 9379,
+				path: req.url,
+				method: req.method,
+				headers: { ...req.headers, host: '127.0.0.1:9379' }
+			};
+			
+			const proxy = http.request(options, (proxyRes) => {
+				res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+				proxyRes.pipe(res, { end: true });
+			});
+			
+			req.pipe(proxy, { end: true });
+			
+			proxy.on('error', (e) => {
+				console.error('Proxy error:', e);
+				if (!res.headersSent) {
+					res.writeHead(500);
+				}
+				res.end();
+			});
+		});
+		
+		this._proxyServer.listen(9380, '127.0.0.1', () => {
+			console.log('CORS Proxy started on 127.0.0.1:9380');
+		});
+	}
 
 	public resolveWebviewView(
 		webviewView: vscode.WebviewView,
@@ -49,8 +95,11 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 
 			const webviewUri = webview.asWebviewUri(vscode.Uri.file(outDir)).toString();
 
-			// Inject <base> tag and patch history API to prevent Next.js App Router from crashing the webview by navigating
+			const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; connect-src ${webview.cspSource} http://127.0.0.1:9380 http://localhost:9380 http://127.0.0.1:9379 http://localhost:9379;">`;
+
+			// Inject CSP, <base> tag, and patch history API
 			const patchScript = `
+				${csp}
 				<base href="${webviewUri}/">
 				<script>
 					window.history.pushState = function() {};

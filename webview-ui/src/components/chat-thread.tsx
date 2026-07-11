@@ -29,8 +29,12 @@ export function ChatThread({ messages, isTyping }: ChatThreadProps) {
             </div>
           </div>
         ) : (
-          messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+          messages.map((message, index) => (
+            <MessageBubble 
+              key={message.id} 
+              message={message} 
+              isStreaming={isTyping && index === messages.length - 1} 
+            />
           ))
         )}
 

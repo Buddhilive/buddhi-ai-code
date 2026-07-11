@@ -14,9 +14,10 @@ export interface Message {
 
 interface MessageBubbleProps {
   message: Message;
+  isStreaming?: boolean;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
   return (
@@ -39,7 +40,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               : 'w-full py-2 text-sm text-foreground'
           )}
         >
-          <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+          <p className="whitespace-pre-wrap leading-relaxed">
+            {message.content}
+            {isStreaming && message.role === 'assistant' && (
+              <span className="ml-1 inline-block w-2 h-4 bg-muted-foreground animate-pulse align-middle rounded-sm" />
+            )}
+          </p>
         </div>
       </div>
     </div>
