@@ -22,16 +22,35 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 				return;
 			}
 
+			const proxyHeaders = { ...req.headers };
+			delete proxyHeaders.host;
+			delete proxyHeaders.origin;
+			delete proxyHeaders.referer;
+
 			const options = {
 				hostname: '127.0.0.1',
 				port: 9379,
 				path: req.url,
 				method: req.method,
-				headers: { ...req.headers, host: '127.0.0.1:9379' }
+				headers: {
+					...proxyHeaders,
+					host: '127.0.0.1:9379'
+				}
 			};
 			
 			const proxy = http.request(options, (proxyRes) => {
-				res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+				const headers = { ...proxyRes.headers };
+				delete headers['access-control-allow-origin'];
+				delete headers['access-control-allow-methods'];
+				delete headers['access-control-allow-headers'];
+				delete headers['access-control-expose-headers'];
+				delete headers['access-control-allow-credentials'];
+
+				headers['access-control-allow-origin'] = '*';
+				headers['access-control-allow-methods'] = 'GET, POST, OPTIONS, PUT, PATCH, DELETE';
+				headers['access-control-allow-headers'] = '*';
+
+				res.writeHead(proxyRes.statusCode || 200, headers);
 				proxyRes.pipe(res, { end: true });
 			});
 			
@@ -71,6 +90,15 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 					case 'showAlert':
 						vscode.window.showInformationMessage(args?.text || text);
 						payload = { success: true };
+						break;
+					case 'consoleLog':
+						console.log(`[Webview LOG] ${args?.text || text || ''}`);
+						break;
+					case 'consoleWarn':
+						console.warn(`[Webview WARN] ${args?.text || text || ''}`);
+						break;
+					case 'consoleError':
+						console.error(`[Webview ERROR] ${args?.text || text || ''}`);
 						break;
 					default:
 						console.warn(`Unknown command: ${command}`);

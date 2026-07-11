@@ -1,5 +1,6 @@
 import { StateGraph, START, END } from '@langchain/langgraph';
 import { BaseMessage } from '@langchain/core/messages';
+import { RunnableConfig } from '@langchain/core/runnables';
 import { llm } from './llm';
 
 // Define the state for the graph
@@ -7,10 +8,10 @@ interface AgentState {
   messages: BaseMessage[];
 }
 
-// Define the node that calls the model
-async function chatbot(state: AgentState) {
-  const response = await llm.invoke(state.messages);
-  // Return the new state
+// Define the node that calls the model.
+// Pass config to llm.invoke so callbacks propagate correctly in browser environments.
+async function chatbot(state: AgentState, config?: RunnableConfig) {
+  const response = await llm.invoke(state.messages, config);
   return { messages: [response] };
 }
 
