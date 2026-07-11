@@ -20,7 +20,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       // Cap at ~5 rows (approx 120px depending on line height)
       const newHeight = Math.min(textarea.scrollHeight, 120);
       textarea.style.height = `${newHeight}px`;
-      
+
       // If it hit the cap, enable scrolling
       if (textarea.scrollHeight > 120) {
         textarea.style.overflowY = 'auto';
@@ -65,7 +65,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             rows={1}
             disabled={disabled}
           />
-          
+
           <div className="flex items-center justify-between px-2 pb-2 pt-1">
             <Button
               variant="ghost"
@@ -76,7 +76,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
               <Plus className="h-5 w-5" />
               <span className="sr-only">Attach</span>
             </Button>
-            
+
             <Button
               size="icon"
               onClick={handleSend}
@@ -90,9 +90,6 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
               <span className="sr-only">Send message</span>
             </Button>
           </div>
-        </div>
-        <div className="mt-2 text-center text-xs text-muted-foreground/60">
-          AI generated content may be incorrect.
         </div>
       </div>
     </div>

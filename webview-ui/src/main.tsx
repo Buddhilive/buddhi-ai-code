@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import Home from './app/page';
-import './app/globals.css';
+import App from './App';
+import './index.css';
 import { vscode } from './lib/vscode';
 
 // Redirect Webview console logs to VS Code Extension Host
@@ -38,6 +38,6 @@ if (typeof acquireVsCodeApi === 'function') {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Home />
+    <App />
   </React.StrictMode>
 );
