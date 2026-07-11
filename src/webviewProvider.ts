@@ -2,11 +2,15 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
+import * as toolHandlers from './tools/toolHandlers';
 
 export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 	private _proxyServer?: http.Server;
 
-	constructor(private readonly _extensionUri: vscode.Uri) {
+	constructor(
+		private readonly _extensionUri: vscode.Uri,
+		private readonly _context: vscode.ExtensionContext
+	) {
 		this._startProxy();
 	}
 
@@ -86,29 +90,53 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 			const { command, requestId, args, text } = data;
 			try {
 				let payload;
-				switch (command) {
-					case 'showAlert':
-						vscode.window.showInformationMessage(args?.text || text);
-						payload = { success: true };
-						break;
-					case 'consoleLog':
-						console.log(`[Webview LOG] ${args?.text || text || ''}`);
-						break;
-					case 'consoleWarn':
-						console.warn(`[Webview WARN] ${args?.text || text || ''}`);
-						break;
-					case 'consoleError':
-						console.error(`[Webview ERROR] ${args?.text || text || ''}`);
-						break;
-					default:
-						console.warn(`Unknown command: ${command}`);
+				
+				if (command.startsWith('tool:')) {
+					switch (command) {
+						case 'tool:view_file': payload = await toolHandlers.handleViewFile(args, this._context); break;
+						case 'tool:write_to_file': payload = await toolHandlers.handleWriteToFile(args, this._context); break;
+						case 'tool:replace_file_content': payload = await toolHandlers.handleReplaceFileContent(args, this._context); break;
+						case 'tool:multi_replace_file_content': payload = await toolHandlers.handleMultiReplaceFileContent(args, this._context); break;
+						case 'tool:list_dir': payload = await toolHandlers.handleListDir(args, this._context); break;
+						case 'tool:find_by_name': payload = await toolHandlers.handleFindByName(args, this._context); break;
+						case 'tool:grep_search': payload = await toolHandlers.handleGrepSearch(args, this._context); break;
+						case 'tool:read_url_content': payload = await toolHandlers.handleReadUrlContent(args, this._context); break;
+						case 'tool:run_command': payload = await toolHandlers.handleRunCommand(args, this._context); break;
+						case 'tool:manage_task': payload = await toolHandlers.handleManageTask(args, this._context); break;
+						case 'tool:schedule': payload = await toolHandlers.handleSchedule(args, this._context); break;
+						case 'tool:list_permissions': payload = await toolHandlers.handleListPermissions(args, this._context); break;
+						// ask_permission is handled purely in webview, but just in case:
+						case 'tool:ask_permission': payload = 'Permission handled in webview'; break;
+						default:
+							console.warn(`Unknown tool command: ${command}`);
+							throw new Error(`Unknown tool command: ${command}`);
+					}
+				} else {
+					switch (command) {
+						case 'showAlert':
+							vscode.window.showInformationMessage(args?.text || text);
+							payload = { success: true };
+							break;
+						case 'consoleLog':
+							console.log(`[Webview LOG] ${args?.text || text || ''}`);
+							break;
+						case 'consoleWarn':
+							console.warn(`[Webview WARN] ${args?.text || text || ''}`);
+							break;
+						case 'consoleError':
+							console.error(`[Webview ERROR] ${args?.text || text || ''}`);
+							break;
+						default:
+							console.warn(`Unknown command: ${command}`);
+					}
 				}
+
 				if (requestId) {
 					webviewView.webview.postMessage({ requestId, payload });
 				}
-			} catch (error) {
+			} catch (error: any) {
 				if (requestId) {
-					webviewView.webview.postMessage({ requestId, error: String(error) });
+					webviewView.webview.postMessage({ requestId, error: String(error?.message || error) });
 				}
 			}
 		});

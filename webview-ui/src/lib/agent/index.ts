@@ -22,7 +22,7 @@ export async function* runAgent(messages: AgentMessage[]): AsyncGenerator<string
   try {
     const stream = await app.streamEvents(
       { messages: langchainMessages },
-      { version: 'v2' }
+      { version: 'v2', configurable: { thread_id: 'chat_session_1' } }
     );
 
     console.log('Stream obtained, consuming events...');
