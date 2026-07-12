@@ -19,7 +19,7 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 			res.setHeader('Access-Control-Allow-Origin', '*');
 			res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
 			res.setHeader('Access-Control-Allow-Headers', '*');
-			
+
 			if (req.method === 'OPTIONS') {
 				res.writeHead(200);
 				res.end();
@@ -41,7 +41,7 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 					host: '127.0.0.1:9379'
 				}
 			};
-			
+
 			const proxy = http.request(options, (proxyRes) => {
 				const headers = { ...proxyRes.headers };
 				delete headers['access-control-allow-origin'];
@@ -57,9 +57,9 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 				res.writeHead(proxyRes.statusCode || 200, headers);
 				proxyRes.pipe(res, { end: true });
 			});
-			
+
 			req.pipe(proxy, { end: true });
-			
+
 			proxy.on('error', (e) => {
 				console.error('Proxy error:', e);
 				if (!res.headersSent) {
@@ -68,9 +68,9 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 				res.end();
 			});
 		});
-		
-		this._proxyServer.listen(9380, '127.0.0.1', () => {
-			console.log('CORS Proxy started on 127.0.0.1:9380');
+
+		this._proxyServer.listen(1234, '127.0.0.1', () => {
+			console.log('CORS Proxy started on 127.0.0.1:1234');
 		});
 	}
 
@@ -90,7 +90,7 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 			const { command, requestId, args, text } = data;
 			try {
 				let payload;
-				
+
 				if (command.startsWith('tool:')) {
 					switch (command) {
 						case 'tool:view_file': payload = await toolHandlers.handleViewFile(args, this._context); break;
@@ -152,7 +152,7 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 
 			const webviewUri = webview.asWebviewUri(vscode.Uri.file(outDir)).toString();
 
-			const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; connect-src ${webview.cspSource} http://127.0.0.1:9380 http://localhost:9380 http://127.0.0.1:9379 http://localhost:9379;">`;
+			const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; connect-src ${webview.cspSource} http://127.0.0.1:1234 http://localhost:1234 http://127.0.0.1:9379 http://localhost:9379;">`;
 
 			// Inject CSP, <base> tag, and patch history API
 			const patchScript = `
