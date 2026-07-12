@@ -19,9 +19,16 @@ async function chatbot(state: AgentState, config?: RunnableConfig) {
 
   // Prepend a system message if one doesn't exist
   if (messages.length > 0 && messages[0].getType() !== 'system') {
+    const workspacePaths = (typeof window !== 'undefined' && (window as any).VSCODE_WORKSPACE_PATHS) || [];
+    const workspaceContext = workspacePaths.length > 0 
+      ? `The active workspace is located at: ${workspacePaths.join(', ')}.`
+      : `No active workspace is open.`;
+
     const sysMsg = new SystemMessage(
       `You are Buddhi AI, a powerful agentic AI coding assistant designed to help the user with their coding tasks.
 You have access to a suite of tools for file operations, search, terminal commands, and more.
+${workspaceContext}
+Always use absolute paths when calling tools like view_file, write_to_file, etc.
 Always prioritize using the most specific tool you can for the task at hand.
 When using write_to_file, replace_file_content, multi_replace_file_content, and run_command, the user will be prompted for confirmation.`
     );

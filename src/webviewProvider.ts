@@ -145,6 +145,7 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 	private _getHtmlForWebview(webview: vscode.Webview) {
 		const outDir = path.join(this._extensionUri.fsPath, 'webview-ui', 'out');
 		const indexPath = path.join(outDir, 'index.html');
+		const workspaceFolders = vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath) || [];
 
 		try {
 			let html = fs.readFileSync(indexPath, 'utf8');
@@ -160,6 +161,7 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 				<script>
 					window.history.pushState = function() {};
 					window.history.replaceState = function() {};
+					window.VSCODE_WORKSPACE_PATHS = ${JSON.stringify(workspaceFolders)};
 				</script>
 			`;
 			html = html.replace('<head>', `<head>\n${patchScript}`);

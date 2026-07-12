@@ -17,7 +17,7 @@
         {
           "id": "buddhi-ai-sidebar",
           "title": "Buddhi AI",
-          "icon": "$(sparkle)"
+          "icon": "src/images/icon-128x128.png"
         }
       ]
     },
