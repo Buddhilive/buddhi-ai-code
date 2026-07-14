@@ -1,79 +1,83 @@
 import { useState, useCallback } from 'react';
-import { runAgent, AgentMessage } from '../agent';
-import { Message } from '@/components/message-bubble';
+import { runAgent, StreamEvent } from '../agent';
+import { BaseMessage } from '@langchain/core/messages';
+import { estimateTokens, countMessagesTokens } from '../agent/compaction';
+import { logSession } from '../agent/sessionLogger';
+
+export interface UIState {
+  messages: BaseMessage[];
+  tokenCount: number;
+  isStreaming: boolean;
+  pendingToolCalls: Record<string, { name: string; args: any; status: 'pending' | 'success' | 'error'; result?: string }>;
+}
 
 export function useAgent() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [state, setState] = useState<UIState>({
+    messages: [],
+    tokenCount: 0,
+    isStreaming: false,
+    pendingToolCalls: {}
+  });
 
   const sendMessage = useCallback(
     async (text: string) => {
-      // 1. Add user message to UI
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: text,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, userMessage]);
-      setIsStreaming(true);
-
-      // Create a new assistant message ID
-      const assistantMessageId = (Date.now() + 1).toString();
-
-      // Add empty assistant message to UI that we will update with streamed chunks
-      setMessages((prev) => [
+      setState(prev => ({
         ...prev,
-        {
-          id: assistantMessageId,
-          role: 'assistant',
-          content: '',
-          timestamp: new Date(),
-        },
-      ]);
+        isStreaming: true,
+      }));
 
       try {
-        // Collect current messages to send to the agent, including the new user message
-        // Exclude the currently empty assistant message
-        const currentMessages: AgentMessage[] = messages.map(m => ({
-          role: m.role,
-          content: m.content,
-        })).concat({ role: 'user', content: text });
-
-        // 2. Call the agent and consume the stream
-        const stream = runAgent(currentMessages);
+        const stream = runAgent(text);
 
         for await (const chunk of stream) {
-          // 3. Update the specific assistant message with the incoming chunk
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: msg.content + chunk }
-                : msg
-            )
-          );
+          if (chunk.type === 'chunk') {
+            // Text chunk logic could go here if we want to render streaming text over the real state
+            // But state_update will give us the final messages anyway
+          } else if (chunk.type === 'tool_call') {
+            setState(prev => ({
+              ...prev,
+              pendingToolCalls: {
+                ...prev.pendingToolCalls,
+                [chunk.id]: { name: chunk.name, args: chunk.args, status: 'pending' }
+              }
+            }));
+          } else if (chunk.type === 'tool_result') {
+            setState(prev => ({
+              ...prev,
+              pendingToolCalls: {
+                ...prev.pendingToolCalls,
+                [chunk.id]: {
+                  ...prev.pendingToolCalls[chunk.id],
+                  status: chunk.status,
+                  result: chunk.result
+                }
+              }
+            }));
+          } else if (chunk.type === 'state_update') {
+            setState(prev => ({
+              ...prev,
+              messages: chunk.messages,
+              tokenCount: countMessagesTokens(chunk.messages)
+            }));
+            
+            // Log session asynchronously when generation yields state update
+            logSession(chunk.messages, countMessagesTokens(chunk.messages)).catch(e => console.error(e));
+          }
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error('Error running agent:', error);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, content: msg.content + `\n\n*(Error: Failed to fetch from agent - ${error?.message || String(error)})*` }
-              : msg
-          )
-        );
       } finally {
-        setIsStreaming(false);
+        setState(prev => ({ ...prev, isStreaming: false }));
       }
     },
-    [messages]
+    []
   );
 
   return {
-    messages,
-    isStreaming,
+    messages: state.messages,
+    tokenCount: state.tokenCount,
+    isStreaming: state.isStreaming,
+    pendingToolCalls: state.pendingToolCalls,
     sendMessage,
   };
 }

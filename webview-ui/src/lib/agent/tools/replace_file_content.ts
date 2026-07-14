@@ -1,18 +1,10 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { vscode } from '../../vscode';
-import { requestConfirmation } from '../../confirmation/ConfirmationContext';
 
 export const replaceFileContent = tool(
   async (args) => {
     try {
-      const confirmed = await requestConfirmation(
-        `Replace File Content`,
-        `Edit ${args.TargetFile} (lines ${args.StartLine}-${args.EndLine})?`
-      );
-      if (!confirmed) {
-        return `Action denied by user.`;
-      }
       const response = await vscode.request<string>('tool:replace_file_content', args);
       return response || 'File updated successfully.';
     } catch (error: any) {

@@ -105,6 +105,8 @@ export class BuddhiWebviewProvider implements vscode.WebviewViewProvider {
 						case 'tool:manage_task': payload = await toolHandlers.handleManageTask(args, this._context); break;
 						case 'tool:schedule': payload = await toolHandlers.handleSchedule(args, this._context); break;
 						case 'tool:list_permissions': payload = await toolHandlers.handleListPermissions(args, this._context); break;
+						case 'tool:load_workspace': payload = await toolHandlers.handleLoadWorkspace(args, this._context); break;
+						case 'tool:log_session': payload = await toolHandlers.handleLogSession(args, this._context); break;
 						// ask_permission is handled purely in webview, but just in case:
 						case 'tool:ask_permission': payload = 'Permission handled in webview'; break;
 						default:

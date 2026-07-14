@@ -6,13 +6,6 @@ import { requestConfirmation } from '../../confirmation/ConfirmationContext';
 export const runCommand = tool(
   async (args) => {
     try {
-      const confirmed = await requestConfirmation(
-        `Run Command`,
-        `Execute '${args.CommandLine}' in terminal?`
-      );
-      if (!confirmed) {
-        return `Action denied by user.`;
-      }
       const response = await vscode.request<string>('tool:run_command', args);
       return response || 'Command sent to terminal.';
     } catch (error: any) {

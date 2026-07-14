@@ -4,6 +4,9 @@ export interface ConfirmationRequest {
   id: string;
   title: string;
   description: string;
+  toolName?: string;
+  args?: Record<string, any>;
+  riskLevel?: 'safe' | 'file-write' | 'shell';
   resolve: (value: boolean) => void;
 }
 
@@ -11,10 +14,16 @@ export interface ConfirmationRequest {
 type Listener = (req: ConfirmationRequest) => void;
 const listeners: Listener[] = [];
 
-export function requestConfirmation(title: string, description: string): Promise<boolean> {
+export function requestConfirmation(
+  title: string, 
+  description: string,
+  toolName?: string,
+  args?: Record<string, any>,
+  riskLevel?: 'safe' | 'file-write' | 'shell'
+): Promise<boolean> {
   return new Promise((resolve) => {
     const id = Math.random().toString(36).substring(7) + Date.now().toString(36);
-    const req = { id, title, description, resolve };
+    const req = { id, title, description, toolName, args, riskLevel, resolve };
     listeners.forEach(l => l(req));
   });
 }

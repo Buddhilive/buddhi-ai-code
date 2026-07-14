@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react';
-import { Message, MessageBubble } from './message-bubble';
+import { MessageBubble } from './message-bubble';
+import { ToolCallBubble } from './tool-call-bubble';
 import { Bot } from 'lucide-react';
+import { BaseMessage } from '@langchain/core/messages';
 
 interface ChatThreadProps {
-  messages: Message[];
+  messages: BaseMessage[];
+  pendingToolCalls: Record<string, { name: string; args: any; status: 'pending' | 'success' | 'error'; result?: string }>;
   isTyping?: boolean;
 }
 
-export function ChatThread({ messages, isTyping }: ChatThreadProps) {
+export function ChatThread({ messages, pendingToolCalls, isTyping }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change or typing state changes
@@ -29,13 +32,34 @@ export function ChatThread({ messages, isTyping }: ChatThreadProps) {
             </div>
           </div>
         ) : (
-          messages.map((message, index) => (
-            <MessageBubble 
-              key={message.id} 
-              message={message} 
-              isStreaming={isTyping && index === messages.length - 1} 
-            />
-          ))
+          messages.filter(m => m.getType() !== 'system').map((message, index) => {
+            const role = message.getType() === 'human' ? 'user' : 'assistant';
+            const id = (message as any).id || index.toString();
+            const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+            
+            // Skip rendering tool calls as standard messages, we render them specifically if needed
+            if (message.getType() === 'tool') return null;
+
+            return (
+              <div key={id}>
+                {content && (
+                  <MessageBubble 
+                    message={{ id, role, content, timestamp: new Date() }} 
+                    isStreaming={isTyping && index === messages.length - 1} 
+                  />
+                )}
+                {message.getType() === 'ai' && (message as any).tool_calls?.map((tc: any) => (
+                  <ToolCallBubble
+                    key={tc.id}
+                    toolName={tc.name}
+                    args={tc.args}
+                    status={pendingToolCalls[tc.id]?.status || 'pending'}
+                    result={pendingToolCalls[tc.id]?.result}
+                  />
+                ))}
+              </div>
+            );
+          })
         )}
 
         {isTyping && (

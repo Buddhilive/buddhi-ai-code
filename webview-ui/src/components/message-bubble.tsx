@@ -1,5 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -37,15 +39,16 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
           className={cn(
             isUser
               ? 'bg-secondary text-secondary-foreground rounded-2xl px-4 py-2.5 text-sm'
-              : 'w-full py-2 text-sm text-foreground'
+              : 'w-full py-2 text-sm text-foreground prose prose-sm max-w-none prose-invert'
           )}
         >
-          <p className="whitespace-pre-wrap leading-relaxed">
-            {message.content}
-            {isStreaming && message.role === 'assistant' && (
-              <span className="ml-1 inline-block w-2 h-4 bg-muted-foreground animate-pulse align-middle rounded-sm" />
-            )}
-          </p>
+          {isUser ? (
+            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content + (isStreaming ? ' ▍' : '')}
+            </ReactMarkdown>
+          )}
         </div>
       </div>
     </div>

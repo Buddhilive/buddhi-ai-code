@@ -1,18 +1,10 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { vscode } from '../../vscode';
-import { requestConfirmation } from '../../confirmation/ConfirmationContext';
 
 export const writeToFile = tool(
   async (args) => {
     try {
-      const confirmed = await requestConfirmation(
-        `Write to File`,
-        `Create or overwrite ${args.TargetFile}?`
-      );
-      if (!confirmed) {
-        return `Action denied by user.`;
-      }
       const response = await vscode.request<string>('tool:write_to_file', args);
       return response || 'File written successfully.';
     } catch (error: any) {

@@ -1,18 +1,10 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { vscode } from '../../vscode';
-import { requestConfirmation } from '../../confirmation/ConfirmationContext';
 
 export const multiReplaceFileContent = tool(
   async (args) => {
     try {
-      const confirmed = await requestConfirmation(
-        `Multi-replace File Content`,
-        `Apply ${args.ReplacementChunks.length} edits to ${args.TargetFile}?`
-      );
-      if (!confirmed) {
-        return `Action denied by user.`;
-      }
       const response = await vscode.request<string>('tool:multi_replace_file_content', args);
       return response || 'File updated successfully.';
     } catch (error: any) {

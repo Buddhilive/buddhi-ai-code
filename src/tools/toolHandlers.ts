@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as http from 'http';
 import * as https from 'https';
+import { spawn } from 'child_process';
 import { taskRegistry } from './taskRegistry';
 import { PersistentTerminal } from './persistentTerminal';
 
@@ -178,13 +179,35 @@ export const handleReadUrlContent = async (args: any, context: vscode.ExtensionC
 };
 
 export const handleRunCommand = async (args: any, context: vscode.ExtensionContext) => {
-  const terminal = PersistentTerminal.getOrCreate(context);
-  terminal.show(true);
-  if (args.Cwd) {
-    terminal.sendText(`cd "${args.Cwd}"`);
-  }
-  terminal.sendText(args.CommandLine);
-  return `Command sent to terminal "Buddhi AI".`;
+  const waitMs = args.WaitMsBeforeAsync || 2000; // wait up to 2 seconds by default
+  const taskId = 'task-' + Math.random().toString(36).substring(7);
+  
+  const options: any = { shell: true };
+  if (args.Cwd) options.cwd = args.Cwd;
+  
+  const child = spawn(args.CommandLine, options);
+  taskRegistry.registerProcess(taskId, args.CommandLine, child);
+  
+  return new Promise((resolve) => {
+    let finished = false;
+    
+    child.on('close', (code) => {
+      finished = true;
+      const status = taskRegistry.status(taskId);
+      let output = `Command exited with code ${code}\n`;
+      if (status) {
+        if (status.stdout) output += `\nSTDOUT:\n${status.stdout}`;
+        if (status.stderr) output += `\nSTDERR:\n${status.stderr}`;
+      }
+      resolve(output);
+    });
+    
+    setTimeout(() => {
+      if (!finished) {
+        resolve(`Command is running in background with ID: ${taskId}\nOutput will be captured. Use manage_task to check status.`);
+      }
+    }, waitMs);
+  });
 };
 
 export const handleManageTask = async (args: any, context: vscode.ExtensionContext) => {
@@ -206,14 +229,14 @@ export const handleSchedule = async (args: any, context: vscode.ExtensionContext
       vscode.window.showInformationMessage(`Scheduled task: ${args.Prompt}`);
       taskRegistry.kill(id);
     }, args.DurationSeconds * 1000);
-    taskRegistry.register(id, 'once', args.Prompt, timer);
+    taskRegistry.registerTimer(id, 'once', args.Prompt, timer);
   } else if (args.CronExpression) {
     // simplified implementation of cron: polling every minute for example purposes
     // A real cron would need a cron parser library
     timer = setInterval(() => {
       vscode.window.showInformationMessage(`Cron task triggered: ${args.Prompt}`);
     }, 60000);
-    taskRegistry.register(id, 'recurring', args.Prompt, timer);
+    taskRegistry.registerTimer(id, 'recurring', args.Prompt, timer);
   }
   
   return `Task scheduled with ID: ${id}`;
@@ -225,4 +248,82 @@ export const handleListPermissions = async (args: any, context: vscode.Extension
     'list_dir', 'find_by_name', 'grep_search', 'read_url_content',
     'run_command', 'manage_task', 'schedule', 'list_permissions', 'ask_permission'
   ];
+};
+
+export const handleLoadWorkspace = async (args: any, context: vscode.ExtensionContext) => {
+  const workspacePaths: string[] = args.WorkspacePaths || [];
+  let mergedContext = '';
+
+  const loadBuddhiMd = async (dir: string) => {
+    const uri = vscode.Uri.file(path.join(dir, 'BUDDHI.md'));
+    try {
+      const data = await vscode.workspace.fs.readFile(uri);
+      return Buffer.from(data).toString('utf8');
+    } catch (e: any) {
+      if (e.code === 'FileNotFound' || e.code === 'ENOENT') {
+        return null;
+      }
+      console.warn(`Error reading BUDDHI.md in ${dir}:`, e);
+      return null;
+    }
+  };
+
+  // 1. ~/.buddhi/BUDDHI.md (global)
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  if (homeDir) {
+    const globalBuddhi = await loadBuddhiMd(path.join(homeDir, '.buddhi'));
+    if (globalBuddhi) {
+      mergedContext += `\n# Global Guidelines (~/.buddhi/BUDDHI.md)\n${globalBuddhi}\n`;
+    }
+  }
+
+  // 2. {workspace}/BUDDHI.md
+  for (const wp of workspacePaths) {
+    const wpBuddhi = await loadBuddhiMd(wp);
+    if (wpBuddhi) {
+      mergedContext += `\n# Workspace Guidelines (${wp})\n${wpBuddhi}\n`;
+    }
+  }
+
+  return mergedContext;
+};
+
+export const handleLogSession = async (args: any, context: vscode.ExtensionContext) => {
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  if (!homeDir) return;
+  
+  const logDir = path.join(homeDir, '.buddhi', 'logs');
+  const logFile = path.join(logDir, 'session.json');
+  
+  try {
+    const dirUri = vscode.Uri.file(logDir);
+    try {
+      await vscode.workspace.fs.stat(dirUri);
+    } catch {
+      await vscode.workspace.fs.createDirectory(dirUri);
+    }
+    
+    const uri = vscode.Uri.file(logFile);
+    let logs: any[] = [];
+    try {
+      const existing = await vscode.workspace.fs.readFile(uri);
+      logs = JSON.parse(Buffer.from(existing).toString('utf8'));
+    } catch (e) {
+      // file might not exist or be invalid, ignore
+    }
+    
+    // Add current session (simplified)
+    logs.push({
+      timestamp: new Date().toISOString(),
+      messagesCount: args.messages?.length || 0,
+      tokenCount: args.tokenCount
+    });
+    
+    // Keep only last 100 sessions
+    if (logs.length > 100) logs = logs.slice(-100);
+    
+    await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(logs, null, 2), 'utf8'));
+  } catch (error) {
+    console.error('Error logging session to ~/.buddhi/logs:', error);
+  }
 };
