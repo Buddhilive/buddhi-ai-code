@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
+import { ModeToggle } from "@/components/custom/toggle-mode";
+import { ThemeProvider } from "next-themes";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,12 +44,14 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <body className={`min-h-full flex flex-col ${geistSans.className} ${geistMono.className}`}
+      >
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+            <header className="flex h-16 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
               <div className="flex items-center gap-2 px-4">
                 <SidebarTrigger className="-ml-1" />
                 <Separator
@@ -68,8 +72,18 @@ export default function RootLayout({
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>
+              <div className="flex items-center gap-2 px-4">
+                <ModeToggle />
+              </div>
             </header>
-            <TooltipProvider>{children}</TooltipProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <TooltipProvider>{children}</TooltipProvider>
+            </ThemeProvider>
           </SidebarInset>
         </SidebarProvider>
       </body>
