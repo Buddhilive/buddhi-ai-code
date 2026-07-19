@@ -9,10 +9,12 @@ export async function POST(req: Request) {
     const {
         messages,
         model,
+        reasoningEnabled = true,
         // webSearch,
     }: {
         messages: UIMessage[];
         model: string;
+        reasoningEnabled?: boolean;
         // webSearch: boolean;
     } = await req.json();
 
@@ -40,9 +42,10 @@ export async function POST(req: Request) {
             stream: toUIMessageStream({
                 stream: result.stream,
                 sendSources: true,
-                sendReasoning: true,
+                sendReasoning: reasoningEnabled,
             }),
         });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         console.error("Chat API Error:", error);
         return NextResponse.json(
@@ -51,4 +54,4 @@ export async function POST(req: Request) {
         );
     }
 }
-
+

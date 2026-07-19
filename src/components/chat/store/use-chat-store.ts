@@ -16,12 +16,14 @@ interface ChatStore {
     modelsLoading: boolean;
     modelsError: string | null;
     input: string;
+    reasoningEnabled: boolean;
 
     // Actions
     setModel: (model: string) => void;
     setModelSelectorOpen: (open: boolean) => void;
     setUseWebSearch: (useWebSearch: boolean | ((prev: boolean) => boolean)) => void;
     setInput: (input: string | ((prev: string) => string)) => void;
+    setReasoningEnabled: (reasoningEnabled: boolean | ((prev: boolean) => boolean)) => void;
     fetchModels: () => Promise<void>;
     loadModel: (modelId: string) => Promise<void>;
     handleModelSelect: (modelId: string) => void;
@@ -36,6 +38,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     modelsLoading: true,
     modelsError: null,
     input: "",
+    reasoningEnabled: true,
 
     setModel: (model) => set({ model }),
     setModelSelectorOpen: (modelSelectorOpen) => set({ modelSelectorOpen }),
@@ -46,6 +49,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     setInput: (input) =>
         set((state) => ({
             input: typeof input === "function" ? input(state.input) : input,
+        })),
+    setReasoningEnabled: (reasoningEnabled) =>
+        set((state) => ({
+            reasoningEnabled: typeof reasoningEnabled === "function" ? reasoningEnabled(state.reasoningEnabled) : reasoningEnabled,
         })),
 
     fetchModels: async () => {

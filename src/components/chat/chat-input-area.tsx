@@ -20,12 +20,15 @@ import {
     PromptInputTextarea,
     PromptInputTools,
     usePromptInputAttachments,
+    PromptInputButton,
 } from "@/components/ai-elements/prompt-input";
 import { SpeechInput } from "@/components/ai-elements/speech-input";
 import { useChatStore } from "./store/use-chat-store";
 import type { ChatStatus } from "ai";
 import { ModelSelectorDropdown } from "./model-selector-dropdown";
 import { toast } from "sonner";
+import { BrainIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const AttachmentItem = ({
     attachment,
@@ -84,6 +87,8 @@ export const ChatInputArea = ({ sendMessage, chatStatus }: ChatInputAreaProps) =
         setInput,
         isLoadingModel,
         model,
+        reasoningEnabled,
+        setReasoningEnabled,
     } = useChatStore();
 
     const handleTextChange = useCallback(
@@ -154,6 +159,16 @@ export const ChatInputArea = ({ sendMessage, chatStatus }: ChatInputAreaProps) =
                             size="icon-sm"
                             variant="ghost"
                         />
+                        <PromptInputButton
+                            onClick={() => setReasoningEnabled((prev) => !prev)}
+                            tooltip={reasoningEnabled ? "Disable reasoning" : "Enable reasoning"}
+                            className={cn(
+                                "shrink-0 transition-colors",
+                                reasoningEnabled ? "text-primary hover:text-primary/80" : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <BrainIcon className="size-4" />
+                        </PromptInputButton>
                         {/* Model selector dropdown component */}
                         <ModelSelectorDropdown />
                     </PromptInputTools>

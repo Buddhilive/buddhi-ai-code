@@ -9,21 +9,21 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
 export default function ChatPage() {
-    const { model, fetchModels } = useChatStore();
+    const { model, fetchModels, reasoningEnabled } = useChatStore();
 
     // Fetch models on load
     useEffect(() => {
         fetchModels();
     }, [fetchModels]);
 
-    // Stable transport — recreated only when model changes
+    // Stable transport — recreated only when model or reasoningEnabled changes
     const transport = useMemo(
         () =>
             new DefaultChatTransport({
                 api: "/api/chat",
-                body: { model },
+                body: { model, reasoningEnabled },
             }),
-        [model]
+        [model, reasoningEnabled]
     );
 
     const { messages, sendMessage: chatSendMessage, status: chatStatus } = useChat({
@@ -47,7 +47,7 @@ export default function ChatPage() {
 
     return (
         <div className="relative flex h-[calc(100vh-80px)] flex-col divide-y overflow-hidden">
-            <MessageList messages={messages} />
+            <MessageList messages={messages} reasoningEnabled={reasoningEnabled} chatStatus={chatStatus} />
             <div className="grid shrink-0 gap-4 pt-4">
                 <SuggestionsList onSuggestionClick={handleSuggestionClick} />
                 <ChatInputArea sendMessage={sendMessage} chatStatus={chatStatus} />
