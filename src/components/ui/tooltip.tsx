@@ -21,8 +21,15 @@ function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
   return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
 }
 
-function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+function TooltipTrigger({ render, ...props }: TooltipPrimitive.Trigger.Props) {
+  // Default to a <span> so a <Button> child doesn't produce nested <button> elements
+  return (
+    <TooltipPrimitive.Trigger
+      data-slot="tooltip-trigger"
+      render={render ?? <span />}
+      {...props}
+    />
+  )
 }
 
 function TooltipContent({

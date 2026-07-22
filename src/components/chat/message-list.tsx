@@ -14,12 +14,22 @@ import {
     ReasoningContent,
 } from "@/components/ai-elements/reasoning";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import {
+    AssistantMessageActions,
+    UserMessageWithActions,
+} from "@/components/chat/message-actions";
+import { Button } from "@/components/ui/button";
 import type { UIMessage, ChatStatus } from "ai";
+import { AlertCircleIcon } from "lucide-react";
 
 interface MessageListProps {
     messages: UIMessage[];
     reasoningEnabled?: boolean;
     chatStatus?: ChatStatus;
+    onEdit?: (editedText: string) => void;
+    onRegenerate?: () => void;
+    onCopy?: (text: string) => void;
+    error?: Error | null;
 }
 
 function parseMessageContent(message: UIMessage) {
@@ -44,7 +54,7 @@ function parseMessageContent(message: UIMessage) {
     let fallbackReasoning = "";
     const thinkRegex = /<think>([\s\S]*?)(<\/think>|$)/gi;
     let match;
-    
+
     while ((match = thinkRegex.exec(rawText)) !== null) {
         fallbackReasoning += match[1];
     }
@@ -59,7 +69,30 @@ function parseMessageContent(message: UIMessage) {
     };
 }
 
-export const MessageList = ({ messages, reasoningEnabled = true, chatStatus }: MessageListProps) => {
+export const MessageList = ({
+    messages,
+    reasoningEnabled = true,
+    chatStatus = "ready",
+    onEdit,
+    onRegenerate,
+    onCopy,
+    error,
+}: MessageListProps) => {
+    // Identify the last user and assistant message indices for action placement
+    let lastUserIndex = -1;
+    let lastAssistantIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (lastAssistantIndex === -1 && messages[i].role === "assistant") {
+            lastAssistantIndex = i;
+        }
+        if (lastUserIndex === -1 && messages[i].role === "user") {
+            lastUserIndex = i;
+        }
+        if (lastUserIndex !== -1 && lastAssistantIndex !== -1) break;
+    }
+
+    const hasActionCallbacks = Boolean(onEdit && onRegenerate && onCopy);
+
     return (
         <Conversation>
             <ConversationContent>
@@ -67,10 +100,31 @@ export const MessageList = ({ messages, reasoningEnabled = true, chatStatus }: M
                     const isAssistant = message.role === "assistant";
                     const isLastMessage = index === messages.length - 1;
                     const isStreaming = isLastMessage && chatStatus === "streaming";
-                    
+                    const isLastUser = !isAssistant && index === lastUserIndex;
+                    const isLastAssistant = isAssistant && index === lastAssistantIndex;
+
                     const { reasoningText, textContent } = parseMessageContent(message);
 
-                    const isWaiting = isAssistant && isLastMessage && (chatStatus === "submitted" || (chatStatus === "streaming" && !reasoningText && !textContent));
+                    const isWaiting =
+                        isAssistant &&
+                        isLastMessage &&
+                        (chatStatus === "submitted" ||
+                            (chatStatus === "streaming" && !reasoningText && !textContent));
+
+                    // Last user message — rendered with inline edit + action buttons
+                    if (isLastUser && hasActionCallbacks) {
+                        return (
+                            <Message from="user" key={message.id}>
+                                <UserMessageWithActions
+                                    messageText={textContent}
+                                    chatStatus={chatStatus}
+                                    onEdit={onEdit!}
+                                    onRegenerate={onRegenerate!}
+                                    onCopy={onCopy!}
+                                />
+                            </Message>
+                        );
+                    }
 
                     return (
                         <Message
@@ -87,7 +141,7 @@ export const MessageList = ({ messages, reasoningEnabled = true, chatStatus }: M
                                         <>
                                             {isAssistant && reasoningEnabled && (
                                                 <>
-                                                    {(reasoningText || isStreaming) ? (
+                                                    {reasoningText || isStreaming ? (
                                                         <Reasoning isStreaming={isStreaming}>
                                                             <ReasoningTrigger />
                                                             <ReasoningContent>{reasoningText}</ReasoningContent>
@@ -100,19 +154,44 @@ export const MessageList = ({ messages, reasoningEnabled = true, chatStatus }: M
                                                     )}
                                                 </>
                                             )}
-                                            <MessageResponse>
-                                                {textContent}
-                                            </MessageResponse>
+                                            <MessageResponse>{textContent}</MessageResponse>
                                         </>
                                     )}
                                 </MessageContent>
+
+                                {/* Action buttons for the last assistant message */}
+                                {isLastAssistant && !isWaiting && onRegenerate && onCopy && (
+                                    <AssistantMessageActions
+                                        messageText={textContent}
+                                        chatStatus={chatStatus}
+                                        onRegenerate={onRegenerate}
+                                        onCopy={onCopy}
+                                    />
+                                )}
                             </div>
                         </Message>
                     );
                 })}
+
+                {/* Error banner — shown when an API error occurs */}
+                {error && (
+                    <div className="mx-2 flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                        <AlertCircleIcon className="size-4 shrink-0" />
+                        <span className="flex-1">Something went wrong. Please try again.</span>
+                        {onRegenerate && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={onRegenerate}
+                                className="shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10"
+                            >
+                                Retry
+                            </Button>
+                        )}
+                    </div>
+                )}
             </ConversationContent>
             <ConversationScrollButton />
         </Conversation>
     );
 };
-
