@@ -10,11 +10,13 @@ export async function POST(req: Request) {
         messages,
         model,
         reasoningEnabled = true,
+        chatId,
         // webSearch,
     }: {
         messages: UIMessage[];
         model: string;
         reasoningEnabled?: boolean;
+        chatId?: string;
         // webSearch: boolean;
     } = await req.json();
 
@@ -35,6 +37,29 @@ export async function POST(req: Request) {
             messages: await convertToModelMessages(messages),
             system:
                 "You are a helpful assistant that can answer questions and help with tasks",
+            onFinish: async ({ response }) => {
+                if (chatId) {
+                    try {
+                        const { saveMessages } = await import("@/lib/db/queries");
+                        // Combine existing messages with assistant's response message
+                        const fullMessages: UIMessage[] = [
+                            ...messages,
+                            {
+                                id: response.id || `assistant-${Date.now()}`,
+                                role: "assistant",
+                                parts: response.messages.flatMap((m) =>
+                                    typeof m.content === "string"
+                                        ? [{ type: "text" as const, text: m.content }]
+                                        : (m.content as any[])
+                                ),
+                            },
+                        ];
+                        await saveMessages(chatId, fullMessages);
+                    } catch (err) {
+                        console.error("Failed to save chat messages in onFinish:", err);
+                    }
+                }
+            },
         });
 
         // send sources and reasoning back to the client

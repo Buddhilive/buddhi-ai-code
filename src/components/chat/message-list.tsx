@@ -22,35 +22,34 @@ interface MessageListProps {
 }
 
 function parseMessageContent(message: UIMessage) {
-    if (!message.parts) {
-        return {
-            reasoningText: "",
-            textContent: "",
-        };
+    let nativeReasoning = "";
+    let rawText = "";
+
+    if (Array.isArray(message.parts) && message.parts.length > 0) {
+        nativeReasoning = message.parts
+            .filter((p) => p.type === "reasoning")
+            .map((p) => (p as { text?: string; reasoning?: string }).text || (p as { reasoning?: string }).reasoning || "")
+            .join("");
+
+        rawText = message.parts
+            .filter((p) => p.type === "text")
+            .map((p) => (p as { text?: string }).text || "")
+            .join("");
+    } else {
+        rawText = (message as any).content || "";
     }
 
-    const nativeReasoning = message.parts
-        .filter((p) => p.type === "reasoning")
-        .map((p) => (p as { text?: string }).text)
-        .join("");
-
-    const textContent = message.parts
-        .filter((p) => p.type === "text")
-        .map((p) => (p as { text?: string }).text)
-        .join("");
-
-    // Regex fallback to extract <think>...</think> from textContent
+    // Regex fallback to extract <think>...</think> from text content
     let fallbackReasoning = "";
     const thinkRegex = /<think>([\s\S]*?)(<\/think>|$)/gi;
     let match;
     
-    while ((match = thinkRegex.exec(textContent)) !== null) {
+    while ((match = thinkRegex.exec(rawText)) !== null) {
         fallbackReasoning += match[1];
     }
 
-    // Remove <think>...</think> from textContent so it isn't rendered as final response
-    const cleanTextContent = textContent.replace(/<think>[\s\S]*?(<\/think>|$)/gi, "");
-
+    // Remove <think>...</think> from text content so it isn't rendered twice
+    const cleanTextContent = rawText.replace(/<think>[\s\S]*?(<\/think>|$)/gi, "").trim();
     const reasoningText = (nativeReasoning + fallbackReasoning).trim();
 
     return {

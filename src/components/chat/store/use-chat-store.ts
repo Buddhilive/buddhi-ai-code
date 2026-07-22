@@ -7,6 +7,14 @@ export interface Model {
     loaded?: boolean;
 }
 
+export interface ChatItem {
+    id: string;
+    title: string;
+    model: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 interface ChatStore {
     model: string;
     modelSelectorOpen: boolean;
@@ -17,6 +25,12 @@ interface ChatStore {
     modelsError: string | null;
     input: string;
     reasoningEnabled: boolean;
+    
+    // Chat state
+    currentChatId: string | null;
+    recentChats: ChatItem[];
+    totalRecentChats: number;
+    recentChatsLoading: boolean;
 
     // Actions
     setModel: (model: string) => void;
@@ -24,9 +38,12 @@ interface ChatStore {
     setUseWebSearch: (useWebSearch: boolean | ((prev: boolean) => boolean)) => void;
     setInput: (input: string | ((prev: string) => string)) => void;
     setReasoningEnabled: (reasoningEnabled: boolean | ((prev: boolean) => boolean)) => void;
+    setCurrentChatId: (chatId: string | null) => void;
     fetchModels: () => Promise<void>;
     loadModel: (modelId: string) => Promise<void>;
     handleModelSelect: (modelId: string) => void;
+    fetchRecentChats: () => Promise<void>;
+    deleteChat: (chatId: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -39,6 +56,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     modelsError: null,
     input: "",
     reasoningEnabled: true,
+    currentChatId: null,
+    recentChats: [],
+    totalRecentChats: 0,
+    recentChatsLoading: false,
 
     setModel: (model) => set({ model }),
     setModelSelectorOpen: (modelSelectorOpen) => set({ modelSelectorOpen }),
@@ -54,6 +75,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         set((state) => ({
             reasoningEnabled: typeof reasoningEnabled === "function" ? reasoningEnabled(state.reasoningEnabled) : reasoningEnabled,
         })),
+    setCurrentChatId: (currentChatId) => set({ currentChatId }),
 
     fetchModels: async () => {
         set({ modelsLoading: true, modelsError: null });
@@ -103,6 +125,40 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const selected = availableModels.find((m) => m.id === modelId);
         if (selected && !selected.loaded) {
             loadModel(modelId);
+        }
+    },
+
+    fetchRecentChats: async () => {
+        set({ recentChatsLoading: true });
+        try {
+            const res = await fetch("/api/chats");
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            set({
+                recentChats: data.chats,
+                totalRecentChats: data.total,
+                recentChatsLoading: false,
+            });
+        } catch (err) {
+            console.error("fetchRecentChats error:", err);
+            set({ recentChatsLoading: false });
+        }
+    },
+
+    deleteChat: async (chatId: string) => {
+        try {
+            const res = await fetch(`/api/chats/${chatId}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete chat");
+            toast.success("Chat deleted");
+            
+            // Remove from store list
+            set((state) => ({
+                recentChats: state.recentChats.filter((c) => c.id !== chatId),
+                totalRecentChats: Math.max(0, state.totalRecentChats - 1),
+            }));
+        } catch (err) {
+            toast.error("Failed to delete chat");
+            console.error("deleteChat error:", err);
         }
     },
 }));
